@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::app::{App, FocusedPanel, InputMode};
 use crate::model::LineOrigin;
-use crate::ui::{status_bar, styles};
+use crate::ui::{comment_panel, help_popup, status_bar, styles};
 
 pub fn render(frame: &mut Frame, app: &App) {
     let show_command_line = app.input_mode == InputMode::Command;
@@ -37,6 +37,16 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     if show_command_line {
         status_bar::render_command_line(frame, app, chunks[3]);
+    }
+
+    // Render help popup on top if in help mode
+    if app.input_mode == InputMode::Help {
+        help_popup::render_help(frame);
+    }
+
+    // Render comment input popup if in comment mode
+    if app.input_mode == InputMode::Comment {
+        comment_panel::render_comment_input(frame, app);
     }
 }
 

@@ -19,6 +19,9 @@ use ratatui::{Terminal, backend::CrosstermBackend};
 
 use app::App;
 use input::{Action, map_key_to_action};
+use model::CommentType;
+use output::export_to_markdown;
+use persistence::save_session;
 
 fn main() -> anyhow::Result<()> {
     // Setup panic hook to restore terminal on panic
@@ -98,16 +101,35 @@ fn main() -> anyhow::Result<()> {
                     Action::ExitMode => {
                         if app.input_mode == app::InputMode::Command {
                             app.exit_command_mode();
+                        } else if app.input_mode == app::InputMode::Comment {
+                            app.exit_comment_mode();
                         }
+                    }
+                    Action::AddLineComment => {
+                        app.enter_comment_mode(false);
+                    }
+                    Action::AddFileComment => {
+                        app.enter_comment_mode(true);
                     }
                     Action::InsertChar(c) => {
                         if app.input_mode == app::InputMode::Command {
                             app.command_buffer.push(c);
+                        } else if app.input_mode == app::InputMode::Comment {
+                            // Handle number keys to set comment type
+                            match c {
+                                '1' => app.set_comment_type(CommentType::Note),
+                                '2' => app.set_comment_type(CommentType::Suggestion),
+                                '3' => app.set_comment_type(CommentType::Issue),
+                                '4' => app.set_comment_type(CommentType::Praise),
+                                _ => app.comment_buffer.push(c),
+                            }
                         }
                     }
                     Action::DeleteChar => {
                         if app.input_mode == app::InputMode::Command {
                             app.command_buffer.pop();
+                        } else if app.input_mode == app::InputMode::Comment {
+                            app.comment_buffer.pop();
                         }
                     }
                     Action::SubmitInput => {
@@ -115,23 +137,38 @@ fn main() -> anyhow::Result<()> {
                             let cmd = app.command_buffer.trim().to_string();
                             match cmd.as_str() {
                                 "q" | "quit" => app.should_quit = true,
-                                "w" | "write" => {
-                                    // TODO: implement save
-                                    app.set_message("Save not yet implemented");
-                                }
-                                "wq" => {
-                                    // TODO: implement save
-                                    app.should_quit = true;
-                                }
-                                "e" | "export" => {
-                                    // TODO: implement export
-                                    app.set_message("Export not yet implemented");
-                                }
+                                "w" | "write" => match save_session(&app.session) {
+                                    Ok(path) => {
+                                        app.dirty = false;
+                                        app.set_message(format!("Saved to {}", path.display()));
+                                    }
+                                    Err(e) => {
+                                        app.set_message(format!("Save failed: {}", e));
+                                    }
+                                },
+                                "wq" => match save_session(&app.session) {
+                                    Ok(_) => {
+                                        app.should_quit = true;
+                                    }
+                                    Err(e) => {
+                                        app.set_message(format!("Save failed: {}", e));
+                                    }
+                                },
+                                "e" | "export" => match export_to_markdown(&app.session) {
+                                    Ok(path) => {
+                                        app.set_message(format!("Exported to {}", path.display()));
+                                    }
+                                    Err(e) => {
+                                        app.set_message(format!("Export failed: {}", e));
+                                    }
+                                },
                                 _ => {
                                     app.set_message(format!("Unknown command: {}", cmd));
                                 }
                             }
                             app.exit_command_mode();
+                        } else if app.input_mode == app::InputMode::Comment {
+                            app.save_comment();
                         }
                     }
                     _ => {}

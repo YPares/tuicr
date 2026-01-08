@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::error::Result;
 use crate::git::{RepoInfo, get_working_tree_diff};
-use crate::model::{DiffFile, FileStatus, ReviewSession};
+use crate::model::{Comment, CommentType, DiffFile, FileStatus, ReviewSession};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
@@ -30,6 +30,9 @@ pub struct App {
     pub diff_state: DiffState,
     pub command_buffer: String,
     pub comment_buffer: String,
+    pub comment_type: CommentType,
+    pub comment_is_file_level: bool,
+    pub comment_line: Option<u32>,
 
     pub should_quit: bool,
     pub dirty: bool,
@@ -72,6 +75,9 @@ impl App {
             diff_state: DiffState::default(),
             command_buffer: String::new(),
             comment_buffer: String::new(),
+            comment_type: CommentType::Note,
+            comment_is_file_level: true,
+            comment_line: None,
             should_quit: false,
             dirty: false,
             message: None,
@@ -190,14 +196,51 @@ impl App {
         self.command_buffer.clear();
     }
 
-    pub fn enter_comment_mode(&mut self) {
+    pub fn enter_comment_mode(&mut self, file_level: bool) {
         self.input_mode = InputMode::Comment;
         self.comment_buffer.clear();
+        self.comment_type = CommentType::Note;
+        self.comment_is_file_level = file_level;
+        // For line comments, we'd track the current line - for now use None
+        self.comment_line = None;
     }
 
     pub fn exit_comment_mode(&mut self) {
         self.input_mode = InputMode::Normal;
         self.comment_buffer.clear();
+    }
+
+    pub fn save_comment(&mut self) {
+        if self.comment_buffer.trim().is_empty() {
+            self.set_message("Comment cannot be empty");
+            return;
+        }
+
+        let content = self.comment_buffer.trim().to_string();
+        let comment = Comment::new(content, self.comment_type);
+
+        if let Some(path) = self.current_file_path().cloned() {
+            if let Some(review) = self.session.get_file_mut(&path) {
+                if self.comment_is_file_level {
+                    review.add_file_comment(comment);
+                    self.set_message("File comment added");
+                } else if let Some(line) = self.comment_line {
+                    review.add_line_comment(line, comment);
+                    self.set_message(format!("Comment added to line {}", line));
+                } else {
+                    // Fallback to file comment if no line specified
+                    review.add_file_comment(comment);
+                    self.set_message("File comment added");
+                }
+                self.dirty = true;
+            }
+        }
+
+        self.exit_comment_mode();
+    }
+
+    pub fn set_comment_type(&mut self, comment_type: CommentType) {
+        self.comment_type = comment_type;
     }
 
     pub fn toggle_help(&mut self) {
