@@ -2,5 +2,29 @@
 name = "tuicr"
 version = "0.1.0"
 edition = "2024"
+description = "Terminal UI for Code Reviews - review changes made by coding agents"
+license = "MIT"
 
 [dependencies]
+# TUI framework
+ratatui = "0.29"
+crossterm = "0.29"
+
+# Git operations
+git2 = "0.19"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Utilities
+directories = "5.0"
+unicode-width = "0.2"
+uuid = { version = "1.0", features = ["v4"] }

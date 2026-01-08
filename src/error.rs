@@ -1,0 +1,30 @@
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum TuicrError {
+    #[error("Git error: {0}")]
+    Git(#[from] git2::Error),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("JSON serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
+
+    #[error("Not a git repository")]
+    NotARepository,
+
+    #[error("No changes to review")]
+    NoChanges,
+
+    #[error("Terminal error: {0}")]
+    Terminal(String),
+
+    #[error("Review session corrupted: {0}")]
+    CorruptedSession(String),
+
+    #[error("Session not found: {0}")]
+    SessionNotFound(String),
+}
+
+pub type Result<T> = std::result::Result<T, TuicrError>;
