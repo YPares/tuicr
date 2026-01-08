@@ -16,9 +16,12 @@ pub fn render_comment_input(frame: &mut Frame, app: &App) {
     frame.render_widget(Clear, area);
 
     let comment_kind = if app.comment_is_file_level {
-        "File Comment"
+        "File Comment".to_string()
     } else {
-        "Line Comment"
+        match app.comment_line {
+            Some(line) => format!("Line {} Comment", line),
+            None => "Line Comment".to_string(),
+        }
     };
 
     let block = Block::default()
@@ -121,12 +124,9 @@ pub fn render_comment_input(frame: &mut Frame, app: &App) {
     frame.render_widget(paragraph, inner);
 }
 
-pub fn format_comment_line(
-    comment_type: CommentType,
-    content: &str,
-    line_num: Option<u32>,
-) -> Line<'static> {
-    let type_style = match comment_type {
+/// Returns the style for a comment type
+fn comment_type_style(comment_type: CommentType) -> Style {
+    match comment_type {
         CommentType::Note => Style::default()
             .fg(styles::COMMENT_NOTE)
             .add_modifier(Modifier::BOLD),
@@ -139,16 +139,57 @@ pub fn format_comment_line(
         CommentType::Praise => Style::default()
             .fg(styles::COMMENT_PRAISE)
             .add_modifier(Modifier::BOLD),
-    };
+    }
+}
 
-    let line_info = line_num.map(|n| format!("L{}: ", n)).unwrap_or_default();
+/// Returns the border color for a comment type
+fn comment_border_color(comment_type: CommentType) -> Style {
+    match comment_type {
+        CommentType::Note => Style::default().fg(styles::COMMENT_NOTE),
+        CommentType::Suggestion => Style::default().fg(styles::COMMENT_SUGGESTION),
+        CommentType::Issue => Style::default().fg(styles::COMMENT_ISSUE),
+        CommentType::Praise => Style::default().fg(styles::COMMENT_PRAISE),
+    }
+}
 
-    Line::from(vec![
-        Span::styled("  💬 ", Style::default()),
-        Span::raw(line_info),
+/// Format a comment as multiple lines with a box border
+/// Returns Vec<Line> for multiline support
+pub fn format_comment_lines(
+    comment_type: CommentType,
+    content: &str,
+    line_num: Option<u32>,
+) -> Vec<Line<'static>> {
+    let type_style = comment_type_style(comment_type);
+    let border_style = comment_border_color(comment_type);
+
+    let line_info = line_num.map(|n| format!("L{} ", n)).unwrap_or_default();
+    let content_lines: Vec<&str> = content.split('\n').collect();
+
+    let mut result = Vec::new();
+
+    // Top border with type label
+    result.push(Line::from(vec![
+        Span::styled("     ╭─ ", border_style),
         Span::styled(format!("[{}] ", comment_type.as_str()), type_style),
-        Span::raw(content.to_string()),
-    ])
+        Span::styled(line_info, styles::dim_style()),
+        Span::styled("─".repeat(30), border_style),
+    ]));
+
+    // Content lines
+    for line in &content_lines {
+        result.push(Line::from(vec![
+            Span::styled("     │ ", border_style),
+            Span::raw(line.to_string()),
+        ]));
+    }
+
+    // Bottom border
+    result.push(Line::from(vec![Span::styled(
+        "     ╰".to_string() + &"─".repeat(38),
+        border_style,
+    )]));
+
+    result
 }
 
 pub fn render_confirm_dialog(frame: &mut Frame, message: &str) {

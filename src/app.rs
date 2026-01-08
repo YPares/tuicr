@@ -342,6 +342,75 @@ impl App {
             .sum()
     }
 
+    /// Calculate the number of display lines a comment takes (header + content + footer)
+    fn comment_display_lines(comment: &Comment) -> usize {
+        let content_lines = comment.content.split('\n').count();
+        2 + content_lines // header + content lines + footer
+    }
+
+    /// Returns the source line number at the current cursor position, if on a diff line
+    pub fn get_line_at_cursor(&self) -> Option<u32> {
+        let target = self.diff_state.cursor_line;
+        let mut line_idx = 0;
+
+        for file in &self.diff_files {
+            let path = file.display_path();
+
+            // File header
+            line_idx += 1;
+
+            // File comments (now multiline with box)
+            if let Some(review) = self.session.files.get(path) {
+                for comment in &review.file_comments {
+                    line_idx += Self::comment_display_lines(comment);
+                }
+            }
+
+            if file.is_binary || file.hunks.is_empty() {
+                // Binary file or no changes line
+                line_idx += 1;
+            } else {
+                // Get line comments for counting
+                let line_comments = self
+                    .session
+                    .files
+                    .get(path)
+                    .map(|r| &r.line_comments)
+                    .cloned()
+                    .unwrap_or_default();
+
+                for hunk in &file.hunks {
+                    // Hunk header
+                    line_idx += 1;
+
+                    // Diff lines
+                    for diff_line in &hunk.lines {
+                        if line_idx == target {
+                            // Found cursor position - return the line number
+                            return diff_line.new_lineno.or(diff_line.old_lineno);
+                        }
+                        line_idx += 1;
+
+                        // Line comments after this diff line (now multiline with box)
+                        let source_line = diff_line.new_lineno.or(diff_line.old_lineno);
+                        if let Some(ln) = source_line {
+                            if let Some(comments) = line_comments.get(&ln) {
+                                for comment in comments {
+                                    line_idx += Self::comment_display_lines(comment);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Spacing line
+            line_idx += 1;
+        }
+
+        None
+    }
+
     pub fn enter_command_mode(&mut self) {
         self.input_mode = InputMode::Command;
         self.command_buffer.clear();
@@ -352,14 +421,13 @@ impl App {
         self.command_buffer.clear();
     }
 
-    pub fn enter_comment_mode(&mut self, file_level: bool) {
+    pub fn enter_comment_mode(&mut self, file_level: bool, line: Option<u32>) {
         self.input_mode = InputMode::Comment;
         self.comment_buffer.clear();
         self.comment_cursor = 0;
         self.comment_type = CommentType::Note;
         self.comment_is_file_level = file_level;
-        // For line comments, we'd track the current line - for now use None
-        self.comment_line = None;
+        self.comment_line = line;
     }
 
     pub fn exit_comment_mode(&mut self) {

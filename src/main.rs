@@ -125,10 +125,15 @@ fn main() -> anyhow::Result<()> {
                         }
                     }
                     Action::AddLineComment => {
-                        app.enter_comment_mode(false);
+                        let line = app.get_line_at_cursor();
+                        if line.is_some() {
+                            app.enter_comment_mode(false, line);
+                        } else {
+                            app.set_message("Move cursor to a diff line to add a line comment");
+                        }
                     }
                     Action::AddFileComment => {
-                        app.enter_comment_mode(true);
+                        app.enter_comment_mode(true, None);
                     }
                     Action::InsertChar(c) => {
                         if app.input_mode == app::InputMode::Command {

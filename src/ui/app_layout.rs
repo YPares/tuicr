@@ -165,19 +165,21 @@ fn render_diff_view(frame: &mut Frame, app: &mut App, area: Rect) {
         // Show file-level comments right after the header
         if let Some(review) = app.session.files.get(path) {
             for comment in &review.file_comments {
-                let is_current = line_idx == current_line_idx;
-                let indicator = if is_current { "▶ " } else { "  " };
-                let mut line = comment_panel::format_comment_line(
+                let comment_lines = comment_panel::format_comment_lines(
                     comment.comment_type,
                     &comment.content,
                     None,
                 );
-                line.spans.insert(
-                    0,
-                    Span::styled(indicator, styles::current_line_indicator_style()),
-                );
-                lines.push(line);
-                line_idx += 1;
+                for mut comment_line in comment_lines {
+                    let is_current = line_idx == current_line_idx;
+                    let indicator = if is_current { "▶" } else { " " };
+                    comment_line.spans.insert(
+                        0,
+                        Span::styled(indicator, styles::current_line_indicator_style()),
+                    );
+                    lines.push(comment_line);
+                    line_idx += 1;
+                }
             }
         }
 
@@ -255,19 +257,24 @@ fn render_diff_view(frame: &mut Frame, app: &mut App, area: Rect) {
                     if let Some(ln) = source_line {
                         if let Some(comments) = line_comments.get(&ln) {
                             for comment in comments {
-                                let is_current = line_idx == current_line_idx;
-                                let indicator = if is_current { "▶ " } else { "  " };
-                                let mut line = comment_panel::format_comment_line(
+                                let comment_lines = comment_panel::format_comment_lines(
                                     comment.comment_type,
                                     &comment.content,
                                     Some(ln),
                                 );
-                                line.spans.insert(
-                                    0,
-                                    Span::styled(indicator, styles::current_line_indicator_style()),
-                                );
-                                lines.push(line);
-                                line_idx += 1;
+                                for mut comment_line in comment_lines {
+                                    let is_current = line_idx == current_line_idx;
+                                    let indicator = if is_current { "▶" } else { " " };
+                                    comment_line.spans.insert(
+                                        0,
+                                        Span::styled(
+                                            indicator,
+                                            styles::current_line_indicator_style(),
+                                        ),
+                                    );
+                                    lines.push(comment_line);
+                                    line_idx += 1;
+                                }
                             }
                         }
                     }
