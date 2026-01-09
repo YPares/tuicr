@@ -3,3 +3,4 @@ tmpclaude-*
 .claude/
 .codex/
 .opencode/
+.direnv

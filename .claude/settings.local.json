@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo check:*)",
+      "Bash(cargo build:*)",
+      "Bash(cargo test:*)",
+      "WebSearch",
+      "Bash(cargo fetch:*)",
+      "Bash(timeout:*)",
+      "Bash(jj desc:*)",
+      "Bash(jj log:*)",
+      "Bash(cargo run:*)",
+      "Bash(cargo metadata:*)",
+      "Bash(cargo clippy:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(find:*)",
+      "WebFetch(domain:docs.github.com)",
+      "mcp__cased-kit__open_repository",
+      "mcp__cased-kit__get_file_tree"
+    ]
+  }
+}
