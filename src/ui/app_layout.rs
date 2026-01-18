@@ -176,9 +176,15 @@ fn render_main_content(frame: &mut Frame, app: &mut App, area: Rect) {
             ])
             .split(area);
 
+        app.file_list_area = Some(chunks[0]);
+        app.diff_area = Some(chunks[1]);
+
         render_file_list(frame, app, chunks[0]);
         render_diff_view(frame, app, chunks[1]);
     } else {
+        app.file_list_area = None;
+        app.diff_area = Some(area);
+
         render_diff_view(frame, app, area);
     }
 }
@@ -221,6 +227,7 @@ fn render_file_list(frame: &mut Frame, app: &mut App, area: Rect) {
         .unwrap_or(0);
 
     app.file_list_state.viewport_width = inner.width as usize;
+    app.file_list_state.viewport_height = inner.height as usize;
     app.file_list_state.max_content_width = max_content_width;
 
     let max_scroll_x = max_content_width.saturating_sub(inner.width as usize);
@@ -229,6 +236,8 @@ fn render_file_list(frame: &mut Frame, app: &mut App, area: Rect) {
     }
     let scroll_x = app.file_list_state.scroll_x;
 
+    // When diff panel is focused, sync file list selection to current file
+    // But preserve the current offset to not interfere with manual scrolling
     if app.focused_panel == FocusedPanel::Diff {
         let current_file_idx = app.diff_state.current_file_idx;
         for (tree_idx, item) in visible_items.iter().enumerate() {
@@ -236,7 +245,11 @@ fn render_file_list(frame: &mut Frame, app: &mut App, area: Rect) {
                 && *file_idx == current_file_idx
             {
                 if app.file_list_state.selected() != tree_idx {
+                    // Save current offset before changing selection
+                    let current_offset = app.file_list_state.list_state.offset();
                     app.file_list_state.select(tree_idx);
+                    // Restore offset to prevent auto-scrolling
+                    *app.file_list_state.list_state.offset_mut() = current_offset;
                 }
                 break;
             }

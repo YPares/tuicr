@@ -154,6 +154,8 @@ pub struct App {
     pub pending_confirm: Option<ConfirmAction>,
     pub supports_keyboard_enhancement: bool,
     pub show_file_list: bool,
+    pub file_list_area: Option<ratatui::layout::Rect>,
+    pub diff_area: Option<ratatui::layout::Rect>,
     pub expanded_dirs: HashSet<String>,
     /// Tracks which hunk gaps have been expanded to show more context
     pub expanded_gaps: HashSet<GapId>,
@@ -168,6 +170,7 @@ pub struct FileListState {
     pub list_state: ratatui::widgets::ListState,
     pub scroll_x: usize,
     pub viewport_width: usize,    // Set during render
+    pub viewport_height: usize,   // Set during render
     pub max_content_width: usize, // Set during render
 }
 
@@ -291,6 +294,8 @@ impl App {
                     pending_confirm: None,
                     supports_keyboard_enhancement: false,
                     show_file_list: true,
+                    file_list_area: None,
+                    diff_area: None,
                     expanded_dirs: HashSet::new(),
                     expanded_gaps: HashSet::new(),
                     expanded_content: HashMap::new(),
@@ -344,6 +349,8 @@ impl App {
                     pending_confirm: None,
                     supports_keyboard_enhancement: false,
                     show_file_list: true,
+                    file_list_area: None,
+                    diff_area: None,
                     expanded_dirs: HashSet::new(),
                     expanded_gaps: HashSet::new(),
                     expanded_content: HashMap::new(),
@@ -546,6 +553,35 @@ impl App {
         self.diff_state.scroll_offset = self.diff_state.scroll_offset.saturating_sub(lines);
         self.ensure_cursor_visible();
         self.update_current_file_from_cursor();
+    }
+
+    pub fn viewport_scroll_down(&mut self, lines: usize) {
+        let total = self.total_lines();
+        let viewport = self.diff_state.viewport_height.max(1);
+        let max_scroll = total.saturating_sub(viewport);
+
+        // Move viewport down
+        self.diff_state.scroll_offset = (self.diff_state.scroll_offset + lines).min(max_scroll);
+
+        // Clamp cursor to stay within viewport bounds
+        // If cursor is now above the visible area, move it to the top visible line
+        if self.diff_state.cursor_line < self.diff_state.scroll_offset {
+            self.diff_state.cursor_line = self.diff_state.scroll_offset;
+        }
+    }
+
+    pub fn viewport_scroll_up(&mut self, lines: usize) {
+        let viewport = self.diff_state.viewport_height.max(1);
+
+        // Move viewport up
+        self.diff_state.scroll_offset = self.diff_state.scroll_offset.saturating_sub(lines);
+
+        // Clamp cursor to stay within viewport bounds
+        // If cursor is now below the visible area, move it to the bottom visible line
+        let max_visible_line = self.diff_state.scroll_offset + viewport - 1;
+        if self.diff_state.cursor_line > max_visible_line {
+            self.diff_state.cursor_line = max_visible_line;
+        }
     }
 
     pub fn scroll_left(&mut self, cols: usize) {
@@ -785,6 +821,46 @@ impl App {
     pub fn file_list_up(&mut self, n: usize) {
         let new_idx = self.file_list_state.selected().saturating_sub(n);
         self.file_list_state.select(new_idx);
+    }
+
+    pub fn file_list_viewport_scroll_down(&mut self, lines: usize) {
+        let visible_items = self.build_visible_items();
+        let total = visible_items.len();
+        let viewport = self.file_list_state.viewport_height.max(1);
+        let selected = self.file_list_state.selected();
+
+        // Get current offset
+        let current_offset = self.file_list_state.list_state.offset();
+        let max_offset = total.saturating_sub(viewport);
+
+        // Move viewport down
+        let new_offset = (current_offset + lines).min(max_offset);
+        *self.file_list_state.list_state.offset_mut() = new_offset;
+
+        // Clamp cursor to stay within viewport bounds
+        // If cursor is now above the visible area, move it to the top visible line
+        if selected < new_offset {
+            self.file_list_state.select(new_offset);
+        }
+    }
+
+    pub fn file_list_viewport_scroll_up(&mut self, lines: usize) {
+        let viewport = self.file_list_state.viewport_height.max(1);
+        let selected = self.file_list_state.selected();
+
+        // Get current offset
+        let current_offset = self.file_list_state.list_state.offset();
+
+        // Move viewport up
+        let new_offset = current_offset.saturating_sub(lines);
+        *self.file_list_state.list_state.offset_mut() = new_offset;
+
+        // Clamp cursor to stay within viewport bounds
+        // If cursor is now below the visible area, move it to the bottom visible line
+        let max_visible = new_offset + viewport - 1;
+        if selected > max_visible {
+            self.file_list_state.select(max_visible);
+        }
     }
 
     pub fn jump_to_file(&mut self, idx: usize) {
