@@ -150,6 +150,7 @@ pub struct App {
 
     pub should_quit: bool,
     pub dirty: bool,
+    pub quit_warned: bool,
     pub message: Option<Message>,
     pub pending_confirm: Option<ConfirmAction>,
     pub supports_keyboard_enhancement: bool,
@@ -290,6 +291,7 @@ impl App {
                     commit_selection_range: None,
                     should_quit: false,
                     dirty: false,
+                    quit_warned: false,
                     message: None,
                     pending_confirm: None,
                     supports_keyboard_enhancement: false,
@@ -345,6 +347,7 @@ impl App {
                     commit_selection_range: None,
                     should_quit: false,
                     dirty: false,
+                    quit_warned: false,
                     message: None,
                     pending_confirm: None,
                     supports_keyboard_enhancement: false,

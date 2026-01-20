@@ -118,7 +118,14 @@ pub fn handle_command_action(app: &mut App, action: Action) {
         Action::SubmitInput => {
             let cmd = app.command_buffer.trim().to_string();
             match cmd.as_str() {
-                "q" | "quit" => app.should_quit = true,
+                "q" | "quit" => {
+                    if app.dirty {
+                        app.set_error("No write since last change (add ! to override)");
+                    } else {
+                        app.should_quit = true;
+                    }
+                }
+                "q!" | "quit!" => app.should_quit = true,
                 "w" | "write" => match save_session(&app.session) {
                     Ok(path) => {
                         app.dirty = false;
@@ -423,8 +430,20 @@ pub fn handle_diff_action(app: &mut App, action: Action) {
 
 /// Handle actions shared between file list and diff panels in Normal mode
 fn handle_shared_normal_action(app: &mut App, action: Action) {
+    // Reset quit_warned on any non-quit action
+    if !matches!(action, Action::Quit) {
+        app.quit_warned = false;
+    }
+
     match action {
-        Action::Quit => app.should_quit = true,
+        Action::Quit => {
+            if app.dirty && !app.quit_warned {
+                app.set_warning("Unsaved changes. Press q again to quit.");
+                app.quit_warned = true;
+            } else {
+                app.should_quit = true;
+            }
+        }
         Action::HalfPageDown => app.scroll_down(app.diff_state.viewport_height / 2),
         Action::HalfPageUp => app.scroll_up(app.diff_state.viewport_height / 2),
         Action::PageDown => app.scroll_down(app.diff_state.viewport_height),
