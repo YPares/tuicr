@@ -144,10 +144,15 @@ fn parse_hunks(
             }
 
             // Apply syntax highlighting if we have a file path
-            let highlighted_lines = if let Some(path) = file_path {
-                highlighter.highlight_file_lines(path, &line_contents)
+            let highlight_sequences =
+                SyntaxHighlighter::split_diff_lines_for_highlighting(&line_contents, &line_origins);
+            let (old_highlighted_lines, new_highlighted_lines) = if let Some(path) = file_path {
+                (
+                    highlighter.highlight_file_lines(path, &highlight_sequences.old_lines),
+                    highlighter.highlight_file_lines(path, &highlight_sequences.new_lines),
+                )
             } else {
-                None
+                (None, None)
             };
 
             // Now create DiffLines with syntax highlighting applied
@@ -159,13 +164,13 @@ fn parse_hunks(
                 let origin = line_origins[line_idx];
 
                 // Get highlighted spans and apply diff background
-                let highlighted_spans = if let Some(ref all_highlighted) = highlighted_lines {
-                    all_highlighted
-                        .get(line_idx)
-                        .map(|spans| highlighter.apply_diff_background(spans.clone(), origin))
-                } else {
-                    None
-                };
+                let highlighted_spans = highlighter.highlighted_line_for_diff_with_background(
+                    old_highlighted_lines.as_deref(),
+                    new_highlighted_lines.as_deref(),
+                    highlight_sequences.old_line_indices[line_idx],
+                    highlight_sequences.new_line_indices[line_idx],
+                    origin,
+                );
 
                 lines.push(DiffLine {
                     origin,
